@@ -34,6 +34,7 @@
 #include <base/samples/DepthMap.hpp>
 #include <base/TransformWithCovariance.hpp>
 #include <base/samples/Sonar.hpp>
+#include <base/samples/Transformation.hpp>
 #include <base/Temperature.hpp>
 #include <base/Time.hpp>
 #include <base/TimeMark.hpp>
@@ -1342,6 +1343,38 @@ BOOST_AUTO_TEST_CASE( transform_with_covariance )
 
     BOOST_CHECK( t1.getTransform().matrix().isApprox( t1r.getTransform().matrix(), sigma ) );
     BOOST_CHECK( t1.getCovariance().isApprox( t1r.getCovariance(), sigma ) );
+}
+
+BOOST_AUTO_TEST_CASE( transformation )
+{
+    base::samples::RigidBodyState rbs;
+    rbs.time = base::Time::fromSeconds(1000);
+    rbs.sourceFrame = "laser";
+    rbs.targetFrame = "body";
+    rbs.position = base::Vector3d(1,2,3);
+    rbs.cov_position = 0.1 * base::Matrix3d::Identity();
+    rbs.orientation = Eigen::AngleAxisd(0.5*M_PI,Eigen::Vector3d::UnitZ()) *
+                        Eigen::AngleAxisd(-0.2*M_PI,Eigen::Vector3d::UnitY()) *
+                        Eigen::AngleAxisd(0.1*M_PI,Eigen::Vector3d::UnitX());
+    rbs.cov_orientation = 0.02 * base::Matrix3d::Identity();
+
+    base::samples::Transformation t(rbs);
+    BOOST_CHECK(rbs.time == t.time);
+    BOOST_CHECK(rbs.sourceFrame == t.local_frame_id);
+    BOOST_CHECK(rbs.targetFrame == t.global_frame_id);
+    BOOST_CHECK(rbs.position.isApprox(t.transform.translation, 1e-12));
+    BOOST_CHECK(rbs.cov_position.isApprox(t.transform.getTranslationCov(), 1e-12));
+    BOOST_CHECK(rbs.orientation.isApprox(t.transform.orientation, 1e-12));
+    BOOST_CHECK(rbs.cov_orientation.isApprox(t.transform.getOrientationCov(), 1e-12));
+
+    base::samples::RigidBodyState rbs2 = t.toRigidBodyState();
+    BOOST_CHECK(rbs.time == rbs2.time);
+    BOOST_CHECK(rbs.sourceFrame == rbs2.sourceFrame);
+    BOOST_CHECK(rbs.targetFrame == rbs2.targetFrame);
+    BOOST_CHECK(rbs.position.isApprox(rbs2.position, 1e-12));
+    BOOST_CHECK(rbs.cov_position.isApprox(rbs2.cov_position, 1e-12));
+    BOOST_CHECK(rbs.orientation.isApprox(rbs2.orientation, 1e-12));
+    BOOST_CHECK(rbs.cov_orientation.isApprox(rbs2.cov_orientation, 1e-12));
 }
 
 #ifdef SISL_FOUND
